@@ -280,7 +280,7 @@ class RBD_Backup_Metadata(object):
             rotation_length = self.MAX_BACKUP_INFO_RETAIN_COUNT
 
             backup_name_list = self.get_backup_name_list()
-            diff_count = len(export_list) - int(rotation_length)
+            diff_count = len(backup_name_list) - int(rotation_length)
             if diff_count > 0:
                 sorted_export_list = sorted(backup_name_list)
                 for i in range(0, diff_count):

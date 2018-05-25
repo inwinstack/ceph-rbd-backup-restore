@@ -394,6 +394,6 @@ def main(argument_list):
 
 
 if "__main__" == __name__:
-    print("%s - Start RBD Restore." % get_datetime())
+    print("\n%s - Start RBD Restore.\n" % get_datetime())
     return_code = main(sys.argv)
-    print("%s - Finish RBD Restore." % get_datetime())
+    print("\n%s - Finish RBD Restore.\n" % get_datetime())

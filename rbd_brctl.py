@@ -11,6 +11,10 @@ def main(argument_list):
     install_path = '_INSTALL_PATH_'
 
     try:
+        if len(argument_list) == 1:
+            print("Please pass arguments as instruction to the RBD backup restore tool.")
+            return
+
         cmd_sub = argument_list[1]
         cmd_opt = ' '.join(argument_list[2:])
 

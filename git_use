@@ -1,0 +1,4 @@
+git init
+git add .
+git remote add origin https://github.com/inwinstack/ceph-rbd-backup-restore.git
+git push -u origin master

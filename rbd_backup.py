@@ -41,6 +41,8 @@ def main(argument_list):
     DEFAULT_CONFIG_SECTION = const.CONFIG_SECTION
     ExportType = const.ExportType
 
+    backup_name = None
+
     # total size of RBD image to backup
     total_rbd_size = 0
 
@@ -73,6 +75,7 @@ def main(argument_list):
         parser = ArgumentParser(add_help=False)
         parser.add_argument('--config-file')
         parser.add_argument('--config-section')
+        parser.add_argument('--backup-name')
         parser.add_argument('rbd_list', nargs='*')
         args = vars(parser.parse_args(argument_list[1:]))
 
@@ -82,6 +85,8 @@ def main(argument_list):
             backup_config_file = args['config_file']
         if args['config_section'] is not None:
             backup_config_section = args['config_section']
+        if args['backup_name'] is not None:
+            backup_name = args['backup_name']
         if len(args['rbd_list']) != 0:
             backup_list_from_command_line = True
 
@@ -107,7 +112,8 @@ def main(argument_list):
 
         # start RBD backup
         begin_backup_datetime = get_datetime()
-        backup_name = normalize_datetime(begin_backup_datetime)
+        if backup_name == None:
+            backup_name = normalize_datetime(begin_backup_datetime)
 
         log.blank(line_count=4)
         log.info("******** Start Ceph RBD backup ********",
@@ -948,7 +954,7 @@ def main(argument_list):
 
 if "__main__" == __name__:
     datetime_now = get_datetime()
-    print("%s - Start RBD Backup." % datetime_now)
+    print("\n%s - Start RBD Backup.\n" % datetime_now)
 
     pidfile = '/var/run/rbd_backup.pid'
     pid = pidfile_check(pidfile)
@@ -963,5 +969,5 @@ if "__main__" == __name__:
 
     return_code = main(sys.argv)
 
-    print("%s - Finish RBD Backup." % get_datetime())
+    print("\n%s - Finish RBD Backup.\n" % get_datetime())
     sys.exit(return_code)
