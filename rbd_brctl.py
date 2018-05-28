@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+#
+# a warper program (manager) to integrate with all RBD backup restore functions.
+#
 
 import os, sys
 
@@ -28,6 +31,10 @@ def main(argument_list):
             cmd = "./rbd_backup.py"
         elif cmd_sub == 'restore':
             cmd = "./rbd_restore.py"
+        #elif cmd_sub == 'cluster':
+        #    cmd = "./cluster.py"
+        #elif cmd_sub == 'daemon':
+        #    cmd = ".daemon.py"
         else:
             print("Unreconginzed instruction '%s'." % cmd_sub)
             sys.exit(2)

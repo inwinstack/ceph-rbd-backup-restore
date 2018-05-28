@@ -32,31 +32,22 @@ from backup.rbd_backup_task_maker import RBD_Backup_Task_Maker
 from backup.rbd_backup_result import RBD_Backup_Task_Result
 
 
-
-################################################################################
-# Main RBD backup procedure function
-################################################################################
 def main(argument_list):
+
     DEFAULT_CONFIG_PATH = const.CONFIG_PATH
     DEFAULT_CONFIG_SECTION = const.CONFIG_SECTION
     ExportType = const.ExportType
 
     backup_name = None
 
-    # total size of RBD image to backup
+    # total size of RBD image to backup (provisioned size)
     total_rbd_size = 0
 
-    # backup directory space info
+    # available and used size of backup directory
     backup_dir_avai_bytes = 0
     backup_dir_used_bytes = 0
 
-    # this used store RBD info list during whole backup procedure
-    # [{'pool_name': '',
-    #   'rbd_name': '',
-    #   'rbd_size': '',
-    #   'rbd_snap': [{'id': '',
-    #                 'size': '',
-    #                 'name': ''}, ... ]}, ...]
+    # store RBD info list (list of dict)
     backup_rbd_info_list   = []
 
     # task counter
@@ -65,7 +56,7 @@ def main(argument_list):
     submitted_rbd_export_task_count = 0
     backup_circle_delete_count = 0
 
-    backup_list_from_command_line = False
+    is_rbd_list_from_command_line = False
 
     manager = None
     ceph = None
@@ -88,7 +79,7 @@ def main(argument_list):
         if args['backup_name'] is not None:
             backup_name = args['backup_name']
         if len(args['rbd_list']) != 0:
-            backup_list_from_command_line = True
+            is_rbd_list_from_command_line = True
 
         # create config obj and read config file data
         cfg = Config(backup_config_file, backup_config_section)
@@ -110,11 +101,12 @@ def main(argument_list):
             print("Error, unable to set logger.")
             sys.exit(2)
 
-        # start RBD backup
+        # set name of this backup
         begin_backup_datetime = get_datetime()
         if backup_name == None:
             backup_name = normalize_datetime(begin_backup_datetime)
 
+        # start RBD backup
         log.blank(line_count=4)
         log.info("******** Start Ceph RBD backup ********",
                  "pid = %s" % os.getpid(),
@@ -129,9 +121,8 @@ def main(argument_list):
         log.info("________ Check Backup Directory ________")
         print("- check backup directory.")
 
-        # structure of backup directory:
-        # /<root dir>/<cluster name>/<pool name>/<rbd name>/<circle name>/<backup files>
-        # add cluster name as subdirectory in the configured backup path.
+        # path structure of backup directory:
+        # /<dest backup dir>/<cluster name>/<pool name>/<rbd name>/<circle name>/<backup files>
         directory = Directory(log)
         log.info("Set backup path:",
                  " - backup destination path = %s" % cfg.backup_destination_path,
@@ -210,7 +201,7 @@ def main(argument_list):
 
             #ops = OpenStack(log)
 
-        elif backup_list_from_command_line:
+        elif is_rbd_list_from_command_line:
             log.info("Read backup list from command line.")
             print("  get backup list from command line input.")
 
@@ -491,8 +482,12 @@ def main(argument_list):
                                                                               max_incr_count))
                         rbd_backup_type[rbd_id] = ExportType[0]
 
-            log.info("Set backup type of '%s' to '%s'." % (rbd_id, rbd_backup_type[rbd_id]))
-            print("  %s %s - %s backup." % (pool_name, rbd_name, rbd_backup_type[rbd_id]))
+            log.info("Set backup type of '%s/%s' to '%s'." % (pool_name,
+                                                              rbd_name,
+                                                              rbd_backup_type[rbd_id]))
+            print("  %s %s - %s backup." % (pool_name,
+                                            rbd_name,
+                                            rbd_backup_type[rbd_id]))
 
         # ==================================================================
         # sort rbd backup list by provisioned size of RBD, from large to small.
@@ -943,12 +938,15 @@ def main(argument_list):
 
 
     except Exception as e:
+
         exc_type,exc_value,exc_traceback = sys.exc_info()
         traceback.print_exception(exc_type, exc_value, exc_traceback, file=sys.stdout)
+
         if manager != None:
             manager.stop()
         if ceph  != None:
             ceph.disconnect_cluster()
+
         sys.exit(2)
 
 

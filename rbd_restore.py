@@ -378,7 +378,7 @@ def main(argument_list):
             log.error("Purge RBD snapshots fail.")
             print("  purge RBD snapshots fail.")
         else:
-            print("- purge RBD snapshots successfully.")
+            print("  purge RBD snapshots successfully.")
 
         # Completed
         manager.stop()
@@ -386,10 +386,13 @@ def main(argument_list):
                  "use %s seconds " % get_elapsed_time(begin_restore_timestamp))
 
     except Exception as e:
+
         exc_type,exc_value,exc_traceback = sys.exc_info()
         traceback.print_exception(exc_type, exc_value, exc_traceback, file=sys.stdout)
+
         if manager != None:
             manager.stop()
+
         sys.exit(2)
 
 

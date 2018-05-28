@@ -288,7 +288,10 @@ def main(argument_list):
 
         print("")
     except Exception as e:
-        print("Error, %s" % e)
+
+        exc_type,exc_value,exc_traceback = sys.exc_info()
+        traceback.print_exception(exc_type, exc_value, exc_traceback, file=sys.stdout)
+
         sys.exit(2)
 
 

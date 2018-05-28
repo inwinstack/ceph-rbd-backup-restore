@@ -21,7 +21,8 @@ class SnapshotPurgeTask(Task):
 
     def get_command(self):
         try:
-            self.command = "rbd snap purge --conf %s --keyring %s --cluster %s " \
+            self.command = "rbd snap purge --no-progress " \
+                           "--conf %s --keyring %s --cluster %s " \
                            "--pool %s %s" % (self.conf_file,
                                              self.keyring_file,
                                              self.cluster_name,
