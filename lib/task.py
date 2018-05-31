@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+# Author: Yu-Jung Cheng
 
 import time, datetime, collections
 
@@ -11,22 +12,17 @@ class Task(object):
         self.end_time = 0
         self.elapsed_time = 0
 
+        self.name = "task_%s" % int(self.init_time)
         self.command = ""
         self.worker_name = ""
         self.return_code = ""
         self.output = ""
         self.error = ""
         self.pid = ""
-        self.ctls = []
+        self.monitor = False
 
-    def _convert_datetime(self, timestamp, str_format='%Y-%m-%d %H:%M:%S.%f'):
-        return datetime.datetime.fromtimestamp(timestamp).strftime(str_format)
-
-    def _convert_seconds(self, second):
-        return str(datetime.timedelta(seconds=second))
-
-    def _convert_to_timestamp(self, datetime_str, str_format='%Y-%m-%d %H:%M:%S.%f'):
-        return time.mktime(datetime.datetime.strptime(datetime_str, str_format).timetuple())
+    def __str__(self):
+        return self.name
 
     def get_command(self):
         return self.command
@@ -44,9 +40,6 @@ class Task(object):
         except Exception as e:
             self.error += "; elapsed_time_error = %s" % e
             return False
-
-    def __str__(self):
-        return "task"
 
     def get_result(self):
         od = collections.OrderedDict()

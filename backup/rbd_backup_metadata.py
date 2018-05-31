@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # coding=UTF-8
+# Author: Yu-Jung Cheng
 
 
 import os
@@ -21,6 +22,7 @@ class RBD_Backup_Metadata(object):
         self.path = "%s/%s" % (path, meta_dir)
 
         self.metafile = MetaFile(log)
+        self.directory = Directory(log)
 
         self.CLUSTER_INFO_META = const.META_CLUSTER_INFO
         self.CLUSTER_RBD_INFO_META = const.META_CLUSTER_RBD_INFO
@@ -230,7 +232,7 @@ class RBD_Backup_Metadata(object):
 
             if incr_info == None:
                 self.log.debug("Metadata - Delete backup incremental file '%s'." % filepath)
-                os.system("rm -rf %s" % filepath)
+                self.directory.delete(filepath)
                 return True
 
             incremental_list = self.metafile.read(filepath=filepath)
@@ -249,11 +251,22 @@ class RBD_Backup_Metadata(object):
 
     def del_backup_info(self, backup_name):
         try:
+            self.log.debug("Metadata - Delete a backup info.")
             filepath = os.path.join(self.path, self.BACKUP_EXPORT_INFO_META, backup_name)
-            os.system("rm -rf %s" % filepath)
+            self.directory.delete(filepath)
             return True
         except Exception as e:
-            self.log.error("Metadata - Unable to delete a export info. %s" % e)
+            self.log.error("Metadata - Unable to delete a backup info. %s" % e)
+            return False
+
+    def del_rbd_info(self, pool_name, rbd_name):
+        try:
+            self.log.debug("Metadata - Delete a rbd meta.")
+            filepath = os.path.join(self.path, pool_name, rbd_name)
+            self.directory.delete(filepath)
+            return True
+        except Exception as e:
+            self.log.error("Metadata - Unable to delete a rbd meta. %s" % e)
             return False
 
     def add_backup_circle_info(self, pool_name, rbd_name, new_circle_info):

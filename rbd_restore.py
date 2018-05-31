@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # coding=UTF-8
-
+# Author: Yu-Jung Cheng
 
 import sys
 import os
@@ -13,7 +13,6 @@ from lib.common_func import *
 from lib.config import Config
 from lib.logger import Logger
 from lib.ceph import Ceph
-from lib.directory import Directory
 from lib.manager import Manager
 
 from backup.rbd_backup_const import RBD_Backup_Const as const
@@ -80,6 +79,7 @@ def main(argument_list):
         if args['cluster_name'] is not None:
             cluster_name = args['cluster_name']
 
+        # get source pool and RBD name and date time to restore from
         if args['src_pool_name'] is None:
             print("Error, missing pool name.")
             sys.exit(2)
@@ -92,7 +92,9 @@ def main(argument_list):
 
         src_pool_name = args['src_pool_name']
         src_rbd_name = args['src_rbd_name']
+        restore_datetime = normalize_datetime(' '.join(args['restore_datetime']))
 
+        # set destination pool and RBD name that will restore to
         dest_pool_name = args['src_pool_name']
         dest_rbd_name = args['src_rbd_name']
         if args['dest_pool_name'] is not None:
@@ -101,8 +103,6 @@ def main(argument_list):
             dest_rbd_name = args['dest_rbd_name']
         if args['force_restore'] == 'True':
             force_import = True
-
-        restore_datetime = normalize_datetime(' '.join(args['restore_datetime']))
 
         # initial backup logging
         log = Logger(cfg.log_file_path,

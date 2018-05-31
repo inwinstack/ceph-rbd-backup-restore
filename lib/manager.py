@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+# Author: Yu-Jung Cheng
 
 import time
 import os
@@ -9,7 +10,6 @@ from threading import Thread
 
 from lib.logger import Logger
 from lib.worker import Worker
-from lib.monitor import Monitor
 
 
 class Manager(object):
@@ -22,7 +22,6 @@ class Manager(object):
         self.tmp_dir = tmp_dir
 
         self.monitoring = False
-        self.monitor = None
         self.workers = {}
         self.workers_status = {}
         self.workers_pid = {}
@@ -35,8 +34,7 @@ class Manager(object):
         self.pid_queue = Queue()
         self.monitor_queue = Queue()
 
-        self.pid_start_flag = 'start'
-        self.pid_end_flag = 'end'
+        self.pid_flags = ['start', 'end', 'io']
         self.pid_watcher = Thread(target=self._pid_queue_watcher_thread)
         self.pid_watcher.start()
 
@@ -45,7 +43,9 @@ class Manager(object):
     def _pid_queue_watcher_thread(self):
         try:
             tmp_dir = os.path.join(self.tmp_dir, 'worker_pid_status')
+
             os.system("mkdir -p %s" % tmp_dir)
+
             while True:
                 pid_info = self.pid_queue.get()
                 if pid_info == None:
@@ -55,30 +55,37 @@ class Manager(object):
                 pid_info_flag = pid_info[0]
                 worker_name = pid_info[1]
                 timestamp = pid_info[2]
-                pid_number = pid_info[3]
+                pid_num = pid_info[3]
+
+                if pid_info_flag == self.pid_flags[2]:
+                    read_bytes = pid_info[4]
+                    write_bytes = pid_info[5]
+                    self.monitor_log.debug("%s %s %s %s %s" % (worker_name,
+                                                               pid_num,
+                                                               timestamp,
+                                                               read_bytes,
+                                                               write_bytes))
+                    continue
+
                 task_name = pid_info[4]
 
                 shm_worker_file = "%s/%s" % (tmp_dir, worker_name)
-                shm_pid_file = "%s/%s" % (tmp_dir, pid_number)
+                shm_pid_file = "%s/%s" % (tmp_dir, pid_num)
 
-                if pid_info_flag == self.pid_start_flag:
+                if pid_info_flag == self.pid_flags[0]:
                     task_command = pid_info[5]
-                    worker_status = "%s %s %s" % (pid_number, task_name, task_command)
+                    worker_status = "%s %s %s" % (pid_num, task_name, task_command)
                     os.system("echo '%s' > %s" % (worker_status, shm_worker_file))
                     pid_status = "%s %s %s %s" % (timestamp, task_name, worker_name, task_command)
                     os.system("echo '%s' > %s" % (pid_status, shm_pid_file))
 
-                elif pid_info_flag == self.pid_end_flag:
+                elif pid_info_flag == self.pid_flags[1]:
                     return_code = pid_info[5]
                     pid_status = "%s %s" % (timestamp, return_code)
                     os.system("echo '%s' >> %s" % (pid_status, shm_pid_file))
-                    os.system("echo '' > %s" % shm_worker_file)
+                    os.system("echo ''   >  %s" %  shm_worker_file)
 
-                if self.monitoring:
-                    if pid_info_flag == self.pid_start_flag:
-                        self.monitor_queue.put((worker_name, pid_number))
-
-            #os.system("rm -rf %s" % tmp_dir)
+            os.system("rm -rf %s" % tmp_dir)
         except Exception as e:
             self.log.error("Manager failed to start pid watcher. %s" % e)
             return False
@@ -103,33 +110,6 @@ class Manager(object):
         logger.set_log(log_format='[%(asctime)s] %(message)s')
         self.monitor_log = logger.get_log()
 
-    def init_monitor(self, interval=10):
-        try:
-            self.log.debug("Manager initializes monitor.")
-
-            if self.monitor_log == None:
-                self.log.debug("Set monitor logger to backup logger.")
-                self.monitor_log = self.log
-            monitor = Monitor(self.monitor_log,
-                              self.monitor_queue,
-                              interval=int(interval))
-            self.monitor = monitor
-        except Exception as e:
-            self.log.error("Manager failed to initialize monitor. %s" % e)
-            return False
-
-    def run_monitor(self):
-        if self.monitoring == False:
-            self.log.debug("Manager starts monitor.")
-            self.monitor.start()
-            self.monitoring = True
-
-    def stop_monitor(self):
-        if self.monitoring == True:
-            self.log.debug("Manager stops monitor.")
-            self.monitor.stop()
-            self.monitoring = False
-
     def run_worker(self, count=None):
         try:
             self.log.debug("Manager starts runing %s workers." % self.worker_count)
@@ -146,9 +126,7 @@ class Manager(object):
                                self.finished_task_queue,
                                self.pid_queue,
                                self.rest_time,
-                               self.stop_signal,
-                               pid_start_flag=self.pid_start_flag,
-                               pid_end_flag=self.pid_end_flag)
+                               self.stop_signal)
                         for i in xrange(self.worker_count) ]
 
             for worker in workers:
@@ -218,4 +196,3 @@ class Manager(object):
     def stop(self):
         self.pid_queue.put(None)
         self.stop_worker()
-        self.stop_monitor()

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+# Author: Yu-Jung Cheng
 
 import yaml, os
 
@@ -51,10 +52,14 @@ class RBD_Backup_List(object):
             options = {}
             if self.rbd_list_data.has_key(cluster_name):
                 rbd_list_data = self.rbd_list_data[cluster_name]
+
                 for rbd_list_info in rbd_list_data:
+
                     if rbd_list_info.has_key(pool_name):
                         rbd_list = rbd_list_info[pool_name]
+
                         for rbd_item in rbd_list:
+
                             if rbd_item.has_key('name'):
                                 if rbd_item['name'] == rbd_name:
                                     options = rbd_item
@@ -66,3 +71,7 @@ class RBD_Backup_List(object):
         except Exception as e:
             self.log.error('Unable to fetch RBD option. %s' % e)
             return False
+
+    # for openstack yaml file
+    def get_openstack_volume_names(self):
+        return []

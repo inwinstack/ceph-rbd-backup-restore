@@ -6,8 +6,8 @@
     To install the RBD backup restore tool, change directory to the
     source directory and exec './install.sh'.
 
-    The 'rbd-brctl' is manage command for the RBD backup restore and installed
-    in /bin directory.
+    The 'rbd-brctl' is entry/manage command for the RBD backup restore and
+    is installed in /bin directory.
 
     All configuration related file are installed in /etc/rbd_backup_restore.
     You need to config it to reflect your needs.
@@ -15,12 +15,14 @@
     All source code or library are be installed in /opt/rbd_backup_restore
     directory.
 
+    This tool require rbd command and librbd and rados library to be
+    installed in system.
+
 
 2. Config:
 
     - config.ini
       This is default/global configuration file of the RBD backup restore tool.
-
       Following is a default setting of config.ini file.
 
         [default]
@@ -41,7 +43,6 @@
         backup_concurrent_worker_count = 2
         backup_circle_retain_count = 2
         backup_snapshot_retain_count = 2
-        backup_small_first = True
         backup_read_options = True
         backup_max_incremental = 6
 
@@ -54,8 +55,71 @@
         openstack_ceph_pool = volumes
 
 
+      Description of each configuration.
+
+        ceph_cluster_name
+          name of Ceph cluster to be backuped.
+
+        ceph_conf_file
+          absolute path of Ceph configuration file.
+
+        ceph_keyring_file
+          absolute path of Ceph keyring file.
+
+        log_file_path
+          directory path for logging.
+
+        log_level
+          logging level. 'INFO', 'WARNING', 'ERROR' or 'DEBUG'
+
+        log_max_bytes
+          max bytes of logging file. integer value.
+
+        log_backup_count
+          max number of logging file for rotation. integer value.
+
+        log_delay
+          delay of opening logging file. 'True' or 'False'.
+
+        log_module_name
+          log module name in logging file. 'True' or 'False'.
+
+        backup_list_from_openstack_yaml_file
+          read rbd list from openstack yaml file. 'True' or 'False'.
+
+        backup_list_file_path
+          absolute file path of rbd backup list in yaml format.
+
+        backup_destination_path
+          absolute directory path for storing RBD image backups.
+
+        backup_concurrent_worker_count
+          number of concurrent RBD images to be backuped. integer value.
+
+        backup_circle_retain_count
+          number of RBD backup circle to be retained. integer value.
+
+        backup_snapshot_retain_count
+          number of RBD snapshot to be retained from the cluster. integer value.
+
+        backup_read_options
+          read backup options form backup list file. 'True' or 'False'.
+
+        backup_max_incremental
+          max number of incremental backup in a backup circle. integer value.
+
+        weekly_full_backup
+          set day of week to perform full backup. single or multiple integer
+          value separate with a comma and space.
+
+        weekly_incr_backup
+          set day of week to perform incremental backup. single or multiple
+          integer value separate with a comma and space.
+
+
     - backup_list.yaml
       An YAML format of file that defines RBD list to be backuped.
+      Definition structure:
 
         <cluster name>:
           - <pool name>:
@@ -64,341 +128,455 @@
               max_backup_circle_count:            (optional)
               backup_snapshot_retain_count:       (optional)
               backup_type:                        (optional)
-            - name: <RBD name>
             ....
 
       For example, if you have a Ceph cluster named 'my_ceph' and a pool name
       'my_pool' and there is a RBD called 'my_rbd' in the pool. You define the
-      YAML as following.
+      YAML as following to backup the RBD.
 
         my_ceph:
           - my_pool:
             - name: my_rbd
 
       There are four optional attributes can be configured to
-      control the backup.
+      control the backup, they will overwrite the global configuration in
+      config.ini file.
 
-      max_incremental_backup_count
-        integer value, max count of incremental backup keep in a backup circle.
+        max_incremental_backup_count
+          integer value, max count of incremental backup keep in a backup circle.
 
-      max_backup_circle_counts
-        integer value, max count of backup circle to retain.
+        max_backup_circle_counts
+          integer value, max count of backup circle to retain.
 
-      backup_snapshot_retain_count:
-        integer value, max count of RBD snapshot keep in Ceph cluster.
+        backup_snapshot_retain_count:
+          integer value, max count of RBD snapshot keep in Ceph cluster.
 
-      backup_type:
-        keyword 'full' or 'incr', select type of the backup, full backup or
-        incremental backup.
+        backup_type:
+          string of 'full' or 'incr', type of RBD backup. full backup or
+          incremental backup.
 
 
 3. Command Usage:
 
     Use 'rbd-brctl' with following instruction commands.
 
-        show    - show information of backup.
-        backup  - perform RBD backup job.
-        restore - perform RBD restore job.
-        delete (implementing)
-        merge (implementing)
-        daemon (implementing)
-        cluster (implementing)
+        show [ rbd | backup | cluster | config ] ...
+            - show information of RBD backup. select one of info type below.
+
+            rbd [ <pool name> ] [ <rbd name> ]
+                list backuped RBD images.
+                with pool name and rbd name, list backup time of the RBD
+
+            backup [ <backup name> ]
+                list backup name.
+                with backup name, list RBDs from the backup.
+
+            cluster
+                show cluster information of backup directory.
+
+            config [ rbd list ]
+                show global configurations.
+                with rbd list, show rbd list from backup list yaml file.
+
+        backup
+            - perform RBD backup job. no any arguments required.
+
+        restore <pool name> <rbd name> <backup time>
+            - perform RBD restore job. need three arguments to perform
+              restoration.
+
+            pool name
+                pool name of backuped RBD. (source backup pool name)
+
+            rbd name
+                RBD name of backuped RBD. (source backup RBD name)
+
+            backup time
+                time point of RBD to be restored to.
+
+        delete <pool name> <rbd name>
+            - delete a backuped RBD.  need two arguments.
+
+            pool name
+                pool name of backuped RBD.
+
+            rbd name
+                RBD name of backuped RBD.
+
 
     Arguments:
 
-        --config-file
+        --config-file <file path>
+            specify a file path of backup restore configuration to be used.
 
-        --config-section
+        --config-section <section name>
+            specify name configuration section to be used.
 
-        --cluster-name
+        --cluster-name <name of Ceph cluster>
+            used in restoration, show and delete instruction. specify Ceph
+            cluster name.
 
-        --backup-directory
+        --backup-directory <directory path>
+            used in restoration, show and delete instruction. specify a backup
+            directory path to operate.
 
         --show-details
+            used in show instruction. display detail information.
 
-        --backup_name
+        --backup-name <backup name>
+            used in backup instruction. specify backup name. if ignored, set
+            a datetime formated name.
 
-        --dest-pool-name
+        --dest-pool-name <new pool name>
+            used for restoration instruction. specify pool name RBD image
+            will be restored to. if ignored, set to source pool name.
 
-        --dest-rbd-name
+        --dest-rbd-name <new rbd name>
+            used in restoration instruction. specify name RBD image will
+            be restored to. if ignored, set to source RBD name.
 
         --force-restore
+            used in restoration instruction. force restore the RBD.
+
+        --yes
+            used in delete instruction. assume yes to delete backuped RBD.
 
 
-4. Command Output Sample:
+4. Command Output Examples:
 
-    [root@yumon1 ceph_rbd_backup_restore_2]# rbd-brctl show config
+    # Show Global/Default Configuration.
+    #--------------------------------------------------------------
 
-    *Show backup config.
+        [root@yumon1 ~]# rbd-brctl show config
 
-    ceph_cluster_name = ceph
-    ceph_conf_file = /etc/ceph/ceph.conf
-    ceph_keyring_file = /etc/ceph/ceph.client.admin.keyring
-    log_file_path = /var/log/rbd_backup_restore
-    log_level = DEBUG
-    log_max_bytes = 20971520
-    log_backup_count = 10
-    log_delay = False
-    log_module_name = False
-    backup_list_from_openstack_yaml_file = False
-    backup_list_file_path = /etc/rbd_backup_restore/backup_list.yaml
-    backup_destination_path = /mnt/disk
-    backup_concurrent_worker_count = 2
-    backup_circle_retain_count = 2
-    backup_snapshot_retain_count = 2
-    backup_small_first = True
-    backup_read_options = True
-    backup_max_incremental = 6
-    weekly_full_backup = 7
-    weekly_incr_backup = 1, 2, 3, 4, 5, 6
-    openstack_yaml_file_path = /etc/rbd_backup_restore/openstack.yaml
-    openstack_yaml_section = default
-    openstack_distribution = helion
-    openstack_ceph_pool = volumes
+        *Show backup config.
 
-
-    [root@yumon1 ceph_rbd_backup_restore_2]# rbd-brctl show config rbd list
-
-    *Show RBD backup list.
-    *Yaml file: /etc/rbd_backup_restore/backup_list.yaml
-    *Cluster name: ceph
-
-    [Pool name]
-      [RBD name]
-    ------------------------
-    rbd
-      new
-      rbd0
-      rbd1
-    volumes
-      old
-      rbd0
-      rbd1
+        ceph_cluster_name = ceph
+        ceph_conf_file = /etc/ceph/ceph.conf
+        ceph_keyring_file = /etc/ceph/ceph.client.admin.keyring
+        log_file_path = /var/log/rbd_backup_restore
+        log_level = DEBUG
+        log_max_bytes = 20971520
+        log_backup_count = 10
+        log_delay = False
+        log_module_name = False
+        backup_list_from_openstack_yaml_file = False
+        backup_list_file_path = /etc/rbd_backup_restore/backup_list.yaml
+        backup_destination_path = /mnt/disk
+        backup_concurrent_worker_count = 4
+        backup_circle_retain_count = 4
+        backup_snapshot_retain_count = 1
+        backup_read_options = True
+        backup_max_incremental = 6
+        weekly_full_backup = 7
+        weekly_incr_backup = 1, 2, 3, 4, 5, 6
+        openstack_yaml_file_path = /etc/rbd_backup_restore/openstack.yaml
+        openstack_yaml_section = default
+        openstack_distribution = helion
+        openstack_ceph_pool = volumes
 
 
-    [root@yumon1 ceph_rbd_backup_restore_2]# rbd-brctl show config rbd list --show-details
+    # Show RBD List From Backup List File.
+    #--------------------------------------------------------------
 
-    *Show RBD backup list.
-    *Yaml file: /etc/rbd_backup_restore/backup_list.yaml
-    *Cluster name: ceph
+        [root@yumon1 ~]# rbd-brctl show config rbd list
 
-    [Pool name]
-      [RBD name] [backup_type] [max_incr] [max_circ] [max_snap]
-    --------------------------------------------------------------------------
-    rbd
-      new False 2 2 1
-      rbd0 False False False False
-      rbd1 False False False False
-    volumes
-      old full False False False
-      rbd0 False False False False
-      rbd1 False False False False
+        *Show RBD backup list.
+        *Yaml file: /etc/rbd_backup_restore/backup_list.yaml
+        *Cluster name: ceph
 
-
-    [root@yumon1 ceph_rbd_backup_restore_2]# rbd-brctl show backup
-
-    *Show all backup name.
-
-    [Backup Name List]
-    --------------------
-    2018_05_25_16_47_25
-    2018_05_25_17_01_41
-    2018_05_25_17_03_15
-    2018_05_25_17_30_23
-
-    [root@yumon1 ceph_rbd_backup_restore_2]# rbd-brctl show backup --show-details
-
-    *Show all backup name.
-
-    [Backup Name]       [RBD Count]
-    -------------------------------
-    2018_05_25_16_47_25 6
-    2018_05_25_17_01_41 6
-    2018_05_25_17_03_15 6
-    2018_05_25_17_30_23 6
+        [Pool name]
+          [RBD name]
+        ------------------------
+        rbd
+          new
+          rbd0
+          rbd1
+        volumes
+          old
+          rbd0
+          rbd1
 
 
-    [root@yumon1 ceph_rbd_backup_restore_2]# rbd-brctl show backup 2018_05_25_17_30_23
+        [root@yumon1 ~]# rbd-brctl show config rbd list --show-details
 
-    *Show RBD list in backup name '2018_05_25_17_30_23'.
+        *Show RBD backup list.
+        *Yaml file: /etc/rbd_backup_restore/backup_list.yaml
+        *Cluster name: ceph
 
-    [Backup RBD List]
-    --------------------
-    rbd/new
-    rbd/rbd0
-    rbd/rbd1
-    volumes/rbd0
-    volumes/old
-    volumes/rbd1
-
-
-    [root@yumon1 ceph_rbd_backup_restore_2]# rbd-brctl show backup 2018_05_25_17_30_23 --show-details
-
-    *Show RBD list in backup name '2018_05_25_17_30_23'.
-
-    [Backup Time]       [Circle name]       [Pool name/RBD name]  ... [Status]
-    --------------------------------------------------------------------------
-    2018_05_25_17_30_26 2018_05_25_17_30_26 rbd/new ... OK
-    2018_05_25_16_47_27 2018_05_25_17_30_26 rbd/rbd0 ... OK
-    2018_05_25_16_47_28 2018_05_25_17_30_27 rbd/rbd1 ... OK
-    2018_05_25_16_47_30 2018_05_25_17_30_29 volumes/rbd0 ... OK
-    2018_05_25_17_30_27 2018_05_25_17_30_27 volumes/old ... OK
-    2018_05_25_16_47_30 2018_05_25_17_30_29 volumes/rbd1 ... OK
+        [Pool name]
+          [RBD name] [backup_type] [max_incr] [max_circ] [max_snap]
+        --------------------------------------------------------------------------
+        rbd
+          new False 2 2 1
+          rbd0 False False False False
+          rbd1 False False False False
+        volumes
+          old full False False False
+          rbd0 False False False False
+          rbd1 False False False False
 
 
-    [root@yumon1 ceph_rbd_backup_restore_2]# rbd-brctl show rbd
+    # Show Backup Information of Backuped Directory
+    #--------------------------------------------------------------
 
-    *Show all backuped RBD name.
+        [root@yumon1 ~]# rbd-brctl show backup
 
-    [Pool name]
-      [RBD name]
-    --------------------
-    rbd
-      rbd0
-      rbd1
-      new
-    volumes
-      old
-      rbd0
+        *Show all backup name.
 
+        [Backup Name List]
+        --------------------
+        2018_05_25_16_47_25
+        2018_05_25_17_01_41
+        2018_05_25_17_03_15
+        2018_05_25_17_30_23
 
-    [root@yumon1 ceph_rbd_backup_restore_2]# rbd-brctl show rbd --show-details
+        [root@yumon1 ~]# rbd-brctl show backup --show-details
 
-    *Show all backuped RBD name.
+        *Show all backup name.
 
-    [Pool name]
-      [RBD name] [block name prefix] [Num objects] [size (bytes)]
-    --------------------------------------------------------------------------
-    rbd
-      rbd0 rbd_data.103e74b0dc51 2048 8589934592
-      rbd1 rbd_data.103f74b0dc51 750 3145728000
-      new rbd_data.2021b2643c9869 500 2097152000
-    volumes
-      old rbd_data.2021c2643c9869 500 2097152000
-      rbd0 rbd_data.104574b0dc51 804 3369074688
-      rbd1 rbd_data.109c643c9869 450 1887436800
+        [Backup Name]       [RBD Count]
+        -------------------------------
+        2018_05_25_16_47_25 6
+        2018_05_25_17_01_41 6
+        2018_05_25_17_03_15 6
+        2018_05_25_17_30_23 6
 
 
-    [root@yumon1 ceph_rbd_backup_restore_2]# rbd-brctl show rbd volumes rbd0
+        [root@yumon1 ~]# rbd-brctl show backup 2018_05_25_17_30_23
 
-    *Show backup time of RBD 'volumes/rbd0'
-    .
-    [Backup time]
-    --------------------
-    2018_05_25_16_47_30
-    2018_05_25_17_01_47
-    2018_05_25_17_03_21
-    2018_05_25_17_30_29
+        *Show RBD list in backup name '2018_05_25_17_30_23'.
 
-
-    [root@yumon1 ceph_rbd_backup_restore_2]# rbd-brctl show rbd volumes rbd0 --show-details
-
-    *Show backup time of RBD 'volumes/rbd0'
-    .
-    [Backup time]       [Backup name]       [Backup circle]     [Backup size]
-    --------------------------------------------------------------------------
-    2018_05_25_16_47_30 2018_05_25_16_47_25 2018_05_25_16_47_30 3369078784
-    2018_05_25_17_01_47 2018_05_25_17_01_41 2018_05_25_16_47_30 4096
-    2018_05_25_17_03_21 2018_05_25_17_03_15 2018_05_25_16_47_30 4096
-    2018_05_25_17_30_29 2018_05_25_17_30_23 2018_05_25_16_47_30 4096
+        [Backup RBD List]
+        --------------------
+        rbd/new
+        rbd/rbd0
+        rbd/rbd1
+        volumes/rbd0
+        volumes/old
+        volumes/rbd1
 
 
-    [root@yumon1 ceph_rbd_backup_restore_2]# rbd-brctl backup
+        [root@yumon1 ~]# rbd-brctl show backup 2018_05_25_17_30_23 --show-details
 
-    2018-05-25 17:41:54 - Start RBD Backup.
+        *Show RBD list in backup name '2018_05_25_17_30_23'.
 
-    - process start running, pid 304016
-    - check backup directory.
-      183308 Mbytes available.
-      12073 Mbytes used.
-    - check backup rbd list.
-      get backup list from /etc/rbd_backup_restore/backup_list.yaml.
-      6 RBD(s) to backup.
-    - verify RBD backup list.
-      rbd/new - 2097152000 bytes.
-      rbd/rbd0 - 8589934592 bytes.
-      rbd/rbd1 - 3145728000 bytes.
-      volumes/old - 2097152000 bytes.
-      volumes/rbd0 - 3369074688 bytes.
-      volumes/rbd1 - 1887436800 bytes.
-      total RBDs has 20205 Mbytes.
-    - check rbd backup type.
-      rbd new - incr backup.
-      rbd rbd0 - incr backup.
-      rbd rbd1 - incr backup.
-      volumes old - full backup.
-      volumes rbd0 - incr backup.
-      volumes rbd1 - incr backup.
-    - sort rbd backup list order.
-      rbd new 2097152000
-      rbd rbd0 8589934592
-      rbd rbd1 3145728000
-      volumes old 2097152000
-      volumes rbd0 3369074688
-      volumes rbd1 1887436800
-    - start task workers.
-      2 worker(s) started.
-    - start RBD snapshot procedure.
-      take snapshot of rbd/new
-      take snapshot of rbd/rbd0
-      take snapshot of rbd/rbd1
-      take snapshot of volumes/old
-      take snapshot of volumes/rbd0
-      take snapshot of volumes/rbd1
-      snapshot of rbd/rbd0 completed.
-      snapshot of rbd/new completed.
-      snapshot of rbd/rbd1 completed.
-      snapshot of volumes/old completed.
-      snapshot of volumes/rbd1 completed.
-      snapshot of volumes/rbd0 completed.
-    - start RBD export procedure.
-      export rbd/new
-      export rbd/rbd0
-      export rbd/rbd1
-      export volumes/old
-      export volumes/rbd0
-      export volumes/rbd1
-      export of rbd/new completed.
-      export of rbd/rbd0 completed.
-      export of rbd/rbd1 completed.
-      export of volumes/rbd0 completed.
-      export of volumes/old completed.
-      export of volumes/rbd1 completed.
-    - check exceed RBD snapshot.
-      delete snapshot 2018_05_25_17_30_26 of rbd/new
-      delete snapshot 2018_05_25_17_03_18 of rbd/rbd0
-      delete snapshot 2018_05_25_17_03_19 of rbd/rbd1
-      delete snapshot 2018_05_25_17_03_19 of volumes/old
-      delete snapshot 2018_05_25_17_03_21 of volumes/rbd0
-      delete snapshot 2018_05_25_17_03_21 of volumes/rbd1
-    - check execeed RBD backup circle.
-      delete backup circle 2018_05_25_17_03_19 of volumes/old
-
-    2018-05-25 17:42:31 - Finish RBD Backup.
+        [Backup Time]       [Circle name]       [Pool name/RBD name]  ... [Status]
+        --------------------------------------------------------------------------
+        2018_05_25_17_30_26 2018_05_25_17_30_26 rbd/new ... OK
+        2018_05_25_16_47_27 2018_05_25_17_30_26 rbd/rbd0 ... OK
+        2018_05_25_16_47_28 2018_05_25_17_30_27 rbd/rbd1 ... OK
+        2018_05_25_16_47_30 2018_05_25_17_30_29 volumes/rbd0 ... OK
+        2018_05_25_17_30_27 2018_05_25_17_30_27 volumes/old ... OK
+        2018_05_25_16_47_30 2018_05_25_17_30_29 volumes/rbd1 ... OK
 
 
-    [root@yumon1 ceph_rbd_backup_restore_2]# rbd-brctl restore rbd rbd0 2018_05_25_17_30_26 --dest-pool-name test --dest-rbd-name rbd0_restore
+    # Show RBD Information of Backuped Directory
+    #--------------------------------------------------------------
 
-    2018-05-25 17:45:00 - Start RBD Restore.
+        [root@yumon1 ~]# rbd-brctl show rbd
 
-    - from backup directory: /mnt/disk
-    - from cluster name: ceph
-    - restore to datetime: 2018_05_25_17_30_26
-    - source pool name: rbd
-    - source RBD name: rbd0
-    - destionation pool name: test
-    - destionation RBD name: rbd0_restore
-    - belonging backup circle name: 2018_05_25_16_47_27
-    - start RBD restoring to 2018_05_25_17_30_26
-      restoring to 2018_05_25_16_47_27. (full)
-      restore to 2018_05_25_16_47_27 successfully.
-      restoring to 2018_05_25_17_01_43. (incr)
-      restore to 2018_05_25_17_01_43 successfully.
-      restoring to 2018_05_25_17_03_18. (incr)
-      restore to 2018_05_25_17_03_18 successfully.
-      restoring to 2018_05_25_17_30_26. (incr)
-      restore to 2018_05_25_17_30_26 successfully.
-    - purge RBD snapshots
-      purge RBD snapshots successfully.
+        *Show all backuped RBD name.
 
-    2018-05-25 17:53:21 - Finish RBD Restore.
+        [Pool name]
+          [RBD name]
+        --------------------
+        rbd
+          rbd0
+          rbd1
+          new
+        volumes
+          old
+          rbd0
+
+
+        [root@yumon1 ~]# rbd-brctl show rbd --show-details
+
+        *Show all backuped RBD name.
+
+        [Pool name]
+          [RBD name] [block name prefix] [Num objects] [size (bytes)]
+        --------------------------------------------------------------------------
+        rbd
+          rbd0 rbd_data.103e74b0dc51 2048 8589934592
+          rbd1 rbd_data.103f74b0dc51 750 3145728000
+          new rbd_data.2021b2643c9869 500 2097152000
+        volumes
+          old rbd_data.2021c2643c9869 500 2097152000
+          rbd0 rbd_data.104574b0dc51 804 3369074688
+          rbd1 rbd_data.109c643c9869 450 1887436800
+
+
+        [root@yumon1 ~]# rbd-brctl show rbd volumes rbd0
+
+        *Show backup time of RBD 'volumes/rbd0'
+        .
+        [Backup time]
+        --------------------
+        2018_05_25_16_47_30
+        2018_05_25_17_01_47
+        2018_05_25_17_03_21
+        2018_05_25_17_30_29
+
+
+        [root@yumon1 ~]# rbd-brctl show rbd volumes rbd0 --show-details
+
+        *Show backup time of RBD 'volumes/rbd0'
+        .
+        [Backup time]       [Backup name]       [Backup circle]     [Backup size]
+        --------------------------------------------------------------------------
+        2018_05_25_16_47_30 2018_05_25_16_47_25 2018_05_25_16_47_30 3369078784
+        2018_05_25_17_01_47 2018_05_25_17_01_41 2018_05_25_16_47_30 4096
+        2018_05_25_17_03_21 2018_05_25_17_03_15 2018_05_25_16_47_30 4096
+        2018_05_25_17_30_29 2018_05_25_17_30_23 2018_05_25_16_47_30 4096
+
+
+    # Start RBD Backup
+    #--------------------------------------------------------------
+
+        [root@yumon1 ~]# rbd-brctl backup
+
+        2018-05-31 16:05:25 - Start RBD Backup.
+
+        - process start running, pid 1175723
+        - check backup directory.
+          190329 Mbytes available.
+          11052 Mbytes used.
+        - check backup rbd list.
+          get backup list from /etc/rbd_backup_restore/test.yaml.
+          3 RBD(s) to be backuped.
+        - verify RBD backup list.
+          rbd/rbda - 2097152000 bytes.
+          rbd/rbdb - 3145728000 bytes.
+          rbd/new1 - 3145728000 bytes.
+          volumes/rbda - 2097152000 bytes.
+          volumes/rbdb - 4194304000 bytes.
+          volumes/old1 - 2097152000 bytes.
+          6 RBD(s) can be backuped.
+          total RBDs has 16000 Mbytes.
+        - check rbd backup type.
+          rbd rbda - incr backup.
+          rbd rbdb - incr backup.
+          rbd new1 - full backup.
+          volumes rbda - full backup.
+          volumes rbdb - full backup.
+          volumes old1 - full backup.
+        - sort rbd backup list order.
+          rbd rbda 2097152000
+          rbd rbdb 3145728000
+          rbd new1 3145728000
+          volumes rbda 2097152000
+          volumes rbdb 4194304000
+          volumes old1 2097152000
+        - start task workers.
+          2 worker(s) started.
+        - start RBD snapshot procedure.
+          take snapshot of rbd/rbda
+          take snapshot of rbd/rbdb
+          take snapshot of rbd/new1
+          take snapshot of volumes/rbda
+          take snapshot of volumes/rbdb
+          take snapshot of volumes/old1
+          snapshot of rbd/rbda completed.
+          snapshot of rbd/rbdb completed.
+          snapshot of rbd/new1 completed.
+          snapshot of volumes/rbda completed.
+          snapshot of volumes/rbdb completed.
+          snapshot of volumes/old1 completed.
+        - start RBD export procedure.
+          export rbd/rbda
+          export rbd/rbdb
+          export rbd/new1
+          export volumes/rbda
+          export volumes/rbdb
+          export volumes/old1
+          export of rbd/rbda completed.
+          export of rbd/rbdb completed.
+          export of rbd/new1 completed.
+          export of volumes/rbda completed.
+          export of volumes/rbdb completed.
+          export of volumes/old1 completed.
+        - check exceed RBD snapshot.
+          delete snapshot 2018_05_31_14_25_04 of rbd/rbda
+          delete snapshot 2018_05_31_14_25_04 of rbd/rbdb
+          delete snapshot 2018_05_31_15_19_04 of rbd/new1
+          delete snapshot 2018_05_31_14_25_05 of volumes/rbda
+          delete snapshot 2018_05_31_14_25_07 of volumes/rbdb
+          delete snapshot 2018_05_31_14_25_07 of volumes/old1
+        - check execeed RBD backup circle.
+
+        2018-05-31 16:09:46 - Finish RBD Backup.
+
+
+        [root@yumon1 test]# rbd-brctl backup rbd/rbda --backup-name mybackup
+
+        2018-05-31 16:19:19 - Start RBD Backup.
+
+        - process start running, pid 1198754
+        - check backup directory.
+          185069 Mbytes available.
+          16312 Mbytes used.
+        - check backup rbd list.
+          get backup list from command line input.
+          1 - rbd rbda
+          1 RBD(s) to be backuped.
+        - verify RBD backup list.
+          rbd/rbda - 2097152000 bytes.
+          1 RBD(s) can be backuped.
+          total RBDs has 2000 Mbytes.
+        - check rbd backup type.
+          rbd rbda - incr backup.
+        - sort rbd backup list order.
+          rbd rbda 2097152000
+        - start task workers.
+          4 worker(s) started.
+        - start RBD snapshot procedure.
+          take snapshot of rbd/rbda
+          snapshot of rbd/rbda completed.
+        - start RBD export procedure.
+          export rbd/rbda
+          export of rbd/rbda completed.
+        - check exceed RBD snapshot.
+          delete snapshot 2018_05_31_16_05_28 of rbd/rbda
+        - check execeed RBD backup circle.
+
+        2018-05-31 16:19:23 - Finish RBD Backup.
+
+
+    # Start RBD Restore
+    #--------------------------------------------------------------
+
+        [root@yumon1 test]# rbd-brctl restore rbd rbda 2018_05_31_16_05_28 --dest-pool-name test --dest-rbd-name rbda_restored
+
+        2018-05-31 16:14:23 - Start RBD Restore.
+
+        - from backup directory: /mnt/disk
+        - from cluster name: ceph
+        - restore to datetime: 2018_05_31_16_05_28
+        - source pool name: rbd
+        - source RBD name: rbda
+        - destionation pool name: test
+        - destionation RBD name: rbda_restored
+        - belonging backup circle name: 2018_05_31_11_54_57
+        - start RBD restoring to 2018_05_31_16_05_28
+          restoring to 2018_05_31_11_54_57. (full)
+          restore to 2018_05_31_11_54_57 successfully.
+          restoring to 2018_05_31_14_25_04. (incr)
+          restore to 2018_05_31_14_25_04 successfully.
+          restoring to 2018_05_31_16_05_28. (incr)
+          restore to 2018_05_31_16_05_28 successfully.
+        - purge RBD snapshots
+          purge RBD snapshots successfully.
+
+        2018-05-31 16:18:06 - Finish RBD Restore.
+
+
+    # Delete a Backuped RBD From Backup Directory
+    #--------------------------------------------------------------
+
+        [root@yumon1 test]# rbd-brctl delete rbd volumes rbdb
+        - delete backuped RBD:
+          pool name: volumes
+          rbd name: rbdb
+        Are you sure to delete this RBD backup (yes or no)? : yes
+        - the backuped RBD is deleted successfully.

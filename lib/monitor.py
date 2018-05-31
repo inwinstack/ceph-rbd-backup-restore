@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # coding=UTF-8
+# Author: Yu-Jung Cheng
 
 import os
 import time
@@ -10,6 +11,7 @@ from multiprocessing import Process, Queue
 from threading import Thread
 
 
+# unused
 class Monitor(Process):
 
     def __init__(self, log, monitor_queue, interval=10):

@@ -1,13 +1,3 @@
 ceph:
   - rbd:
-    - name: new
-      max_incremental_backup_count: 2
-      max_backup_circle_count: 2
-      backup_snapshot_retain_count: 1
-    - name: rbd0
-    - name: rbd1
-  - volumes:
-    - name: old
-      backup_type: full
-    - name: rbd0
-    - name: rbd1
+    - name: rbd_name

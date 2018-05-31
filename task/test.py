@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # coding=UTF-8
+# Author: Yu-Jung Cheng
 
 import datetime
 
@@ -13,3 +14,6 @@ class TestTask(Task):
         self.cluster_name = cluster_name
         self.pool_name = pool_name
         self.rbd_name = rbd_name
+
+    def get_command(self):
+        return "date; sleep 10; date"

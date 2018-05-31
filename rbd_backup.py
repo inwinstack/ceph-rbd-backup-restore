@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # coding=UTF-8
+# Author: Yu-Jung Cheng
 
 import sys
 import os
@@ -34,9 +35,7 @@ from backup.rbd_backup_result import RBD_Backup_Task_Result
 
 def main(argument_list):
 
-    DEFAULT_CONFIG_PATH = const.CONFIG_PATH
-    DEFAULT_CONFIG_SECTION = const.CONFIG_SECTION
-    ExportType = const.ExportType
+    #const.EXPORT_TYPE = const.EXPORT_TYPE
 
     backup_name = None
 
@@ -70,8 +69,8 @@ def main(argument_list):
         parser.add_argument('rbd_list', nargs='*')
         args = vars(parser.parse_args(argument_list[1:]))
 
-        backup_config_file = DEFAULT_CONFIG_PATH
-        backup_config_section = DEFAULT_CONFIG_SECTION
+        backup_config_file = const.CONFIG_PATH
+        backup_config_section = const.CONFIG_SECTION
         if args['config_file'] is not None:
             backup_config_file = args['config_file']
         if args['config_section'] is not None:
@@ -115,14 +114,13 @@ def main(argument_list):
         log.info('Config settings:', cfg.get_option())
 
         # ==================================================================
-        # check backup directory environment
-        # check space of backup directory and metafile
+        # check backup directory environment, space size and metafile if exists.
         # ==================================================================
         log.info("________ Check Backup Directory ________")
         print("- check backup directory.")
 
-        # path structure of backup directory:
-        # /<dest backup dir>/<cluster name>/<pool name>/<rbd name>/<circle name>/<backup files>
+        # Path structure of backup directory:
+        # Dest. Backup Dir/Ceph Name/Pool Name/RBD name/Circle Name/Backup Files
         directory = Directory(log)
         log.info("Set backup path:",
                  " - backup destination path = %s" % cfg.backup_destination_path,
@@ -151,10 +149,10 @@ def main(argument_list):
         print("  %s Mbytes used." % int(backup_dir_used_bytes/1024/1024))
 
         # read metadata file in backup directory
-        # get last snapshot name and backup circle directory name
+        #   get last snapshot name and backup circle directory name
         log.info("Check metadata of the backup directory.")
-        backup_meta = RBD_Backup_Metadata(log, cluster_backup_path)
 
+        backup_meta = RBD_Backup_Metadata(log, cluster_backup_path)
         meta_cluster_info = backup_meta.get_cluster_info()
         if all (k in meta_cluster_info for k in ('name', 'fsid')):
             if meta_cluster_info['name'] != cfg.ceph_cluster_name:
@@ -163,7 +161,7 @@ def main(argument_list):
                           "name from backup config file: %s" % cfg.ceph_cluster_name)
                 sys.exit(2)
 
-            ceph_cfg = Config(cfg.ceph_conf_file, 'global')
+            ceph_cfg = Config(cfg.ceph_conf_file, const.CEPH_CONFIG_SECTION)
             if not ceph_cfg.is_valid():
                 log.error("Unable to read ceph config.")
                 sys.exit(2)
@@ -186,27 +184,19 @@ def main(argument_list):
         log.info("________ Read RBD Backup List ________")
         print("- check backup rbd list.")
 
-        rbd_name_list = {}
+        backup_option = RBD_Backup_Option(log)
+        rbd_backup_list = RBD_Backup_List(log)
+
+        rbd_name_list = {}  # rbd name list : {'pool_name': ['rbd_name', ...], ...}
         pool_count = 0
         rbd_count = 0
 
-        if cfg.backup_list_from_openstack_yaml_file == 'True':
-            log.info("Read backup list from OpenStack YAML file.")
-            print("  get backup list from OpenStack YAML file %s." % cfg.openstack_yaml_file_path)
-
-            file_path = cfg.openstack_yaml_file_path
-            section_name = cfg.openstack_yaml_section
-            distribution = cfg.openstack_distribution
-            ceph_pool = cfg.openstack_ceph_pool
-
-            #ops = OpenStack(log)
-
-        elif is_rbd_list_from_command_line:
+        if is_rbd_list_from_command_line == True:
             log.info("Read backup list from command line.")
             print("  get backup list from command line input.")
 
-            for rbd_item in args['rbd_list']:
-                rbd_info = rbd_item.split("/")
+            for rbd_list_input in args['rbd_list']:
+                rbd_info = rbd_list_input.split("/")
 
                 if len(rbd_info) == 2:
                     pool_name = rbd_info[0]
@@ -218,50 +208,66 @@ def main(argument_list):
                         rbd_list = rbd_name_list[pool_name]
                         rbd_list.append(rbd_name)
                         rbd_name_list[pool_name] = rbd_list
+
                     print("  %s - %s %s" % (rbd_count, pool_name, rbd_name))
                 else:
-                    log.error("Invalid rbd input list. %s" % rbd_item)
+                    log.error("Invalid rbd input list. %s" % rbd_list_input)
                     print("Error, Please input RBD name as '<pool_name>/<rbd_name>'\n" \
                           "For example, 3 RBDs to backup:\n" \
                           "  rbd/rbd_a rbd/rbd_b volume/rbd_1")
                     sys.exit(2)
         else:
-            log.info("Read backup list from backup list file.")
-            print("  get backup list from %s." % cfg.backup_list_file_path)
+            if cfg.backup_list_from_openstack_yaml_file == 'True':
+                log.info("Read backup list from OpenStack YAML file.")
+                print("  get backup list from OpenStack YAML file %s." % cfg.openstack_yaml_file_path)
 
-            if not os.path.exists(cfg.backup_list_file_path):
-                log.error("Backup list file '%s' not exists." % cfg.backup_list_file_path)
-                sys.exit(2)
+                file_path = cfg.openstack_yaml_file_path
+                section_name = cfg.openstack_yaml_section
+                distribution = cfg.openstack_distribution
+                ceph_pool = cfg.openstack_ceph_pool
 
-            # get rbd anme list from rbd backup list file
-            # rbd name list : {'pool_name': ['rbd_name', ...], ...}
-            rbd_backup_list = RBD_Backup_List(log)
-            rbd_backup_list.read_yaml(cfg.backup_list_file_path)
-            rbd_name_list = rbd_backup_list.get_rbd_name_list(cfg.ceph_cluster_name)
+                if not os.path.exists(cfg.openstack_yaml_file_path):
+                    log.error("Openstack Yaml file '%s' not exists." % cfg.backup_list_file_path)
+                    sys.exit(2)
 
-            if rbd_name_list == {}:
-                log.warning("No any item in RBD backup list.")
-                print("Info, No any item in RBD backup list.")
-                sys.exit(0)
-            if rbd_name_list == False:
-                log.error("unable to get rbd name list from backup list file.")
-                print("Error, unable to get rbd name list from backup list file.")
-                sys.exit(2)
+                rbd_backup_list.read_yaml(cfg.openstack_yaml_file_path)
+                rbd_name_list = rbd_backup_list.get_openstack_volume_names()
 
-            backup_option = RBD_Backup_Option(log)
-            for pool_name, rbd_list in rbd_name_list.iteritems():
-                pool_count += 1
-                if cfg.backup_read_options == 'True':
-                    for rbd_name in rbd_list:
-                        options = rbd_backup_list.get_rbd_options(cfg.ceph_cluster_name,
-                                                                  pool_name,
-                                                                  rbd_name)
-                        backup_option.add_option(pool_name, rbd_name, options)
-                rbd_count += len(rbd_list)
-                log.info("%s RBD images to backup in pool '%s'." % (rbd_count, pool_name))
+            else:
+                log.info("Read RBD list from backup list file.")
+                print("  get RBD backup list from %s." % cfg.backup_list_file_path)
+
+                if not os.path.exists(cfg.backup_list_file_path):
+                    log.error("Backup list file '%s' not exists." % cfg.backup_list_file_path)
+                    sys.exit(2)
+
+                rbd_backup_list.read_yaml(cfg.backup_list_file_path)
+                rbd_name_list = rbd_backup_list.get_rbd_name_list(cfg.ceph_cluster_name)
+
+                if rbd_name_list == {}:
+                    log.warning("No any item in RBD backup list.")
+                    print("Info, No any item in RBD backup list.")
+                    sys.exit(0)
+                if rbd_name_list == False:
+                    log.error("unable to get rbd name list from backup list file.")
+                    print("Error, unable to get rbd name list from backup list file.")
+                    sys.exit(2)
+
+                for pool_name, rbd_list in rbd_name_list.iteritems():
+                    pool_count += 1
+
+                    if cfg.backup_read_options == 'True':
+                        for rbd_name in rbd_list:
+                            options = rbd_backup_list.get_rbd_options(cfg.ceph_cluster_name,
+                                                                      pool_name,
+                                                                      rbd_name)
+                            backup_option.add_option(pool_name, rbd_name, options)
+
+            rbd_count += len(rbd_list)
+            log.info("%s RBD images to backup in pool '%s'." % (rbd_count, pool_name))
 
         log.info("Total %s RBD images configured to backup." % rbd_count)
-        print("  %s RBD(s) to backup." % rbd_count)
+        print("  %s RBD(s) to be backuped." % rbd_count)
 
         if rbd_count == 0:
             sys.exit(0)
@@ -273,6 +279,8 @@ def main(argument_list):
         # ==================================================================
         log.info("________ Verify RBD Backup List ________")
         print("- verify RBD backup list.")
+
+        valid_rbd_count = 0
 
         #ceph_conff_file = cfg.ceph_conf_file
         ceph = Ceph(log, cfg.ceph_cluster_name, conffile=cfg.ceph_conf_file)
@@ -345,6 +353,7 @@ def main(argument_list):
                 backup_rbd_info_list.append(rbd_info)
                 total_rbd_size += rbd_size
 
+                valid_rbd_count += 1
                 print("  %s/%s - %s bytes." % (pool_name, rbd_name, rbd_size))
 
                 # compare rbd stat
@@ -359,8 +368,12 @@ def main(argument_list):
 
             ceph.close_ioctx()
 
+        print("  %s RBD(s) can be backuped." % valid_rbd_count)
         log.info("Total %s bytes of RBD images size to backup." % total_rbd_size)
         print("  total RBDs has %s Mbytes." % int(total_rbd_size/1024/1024))
+
+        if valid_rbd_count == 0:
+            sys.exit(0)
 
         reserve_space = backup_dir_avai_bytes * 0.01
         usable_space_size = backup_dir_avai_bytes - reserve_space
@@ -398,9 +411,9 @@ def main(argument_list):
         log.info("Check default backup type for today.")
         weekday = str(int(datetime.datetime.today().weekday()) + 1)
         if weekday in full_weekdays:
-            weekday_backup_type = ExportType[0]
+            weekday_backup_type = const.EXPORT_TYPE[0]
         elif weekday in incr_weekday:
-            weekday_backup_type = ExportType[1]
+            weekday_backup_type = const.EXPORT_TYPE[1]
         else:
             log.info("No bacakup triggered on today (weekday=%s)." % weekday)
             print("Info, No bacakup triggered on today.")
@@ -419,6 +432,7 @@ def main(argument_list):
             # verify backup type
             # --------------------------------------
             log.info("Check backup type of '%s'." % rbd_id)
+
             if cfg.backup_read_options == 'True':
                 log.info("Check backup type form backup option.")
                 option_backup_type = backup_option.get_backup_type(pool_name,
@@ -428,30 +442,30 @@ def main(argument_list):
                 else:
                     rbd_backup_type[rbd_id] = option_backup_type
 
-            if rbd_backup_type[rbd_id] == ExportType[1]:
+            if rbd_backup_type[rbd_id] == const.EXPORT_TYPE[1]:
                 # rbd snapshot check
                 log.info("Check last backup snapshot.")
                 meta_snap_info_list = backup_meta.get_backup_snapshot_list(pool_name,
                                                                            rbd_name)
                 if len(meta_snap_info_list) == 0:
                     log.warning("No snapshot list metadata found.")
-                    rbd_backup_type[rbd_id] = ExportType[0]
+                    rbd_backup_type[rbd_id] = const.EXPORT_TYPE[0]
                 else:
                     meta_last_snap_info = meta_snap_info_list[-1]
                     meta_last_snap_name = meta_last_snap_info['name']
                     ceph_snap_name_list = [i['name'] for i in rbd_snap]   # get snap name list
                     if meta_last_snap_name not in ceph_snap_name_list:
                         log.warning("Snapshot name '%s' is not found in ceph cluster." % meta_last_snap_name)
-                        rbd_backup_type[rbd_id] = ExportType[0]
+                        rbd_backup_type[rbd_id] = const.EXPORT_TYPE[0]
 
-            if rbd_backup_type[rbd_id] == ExportType[1]:
+            if rbd_backup_type[rbd_id] == const.EXPORT_TYPE[1]:
                 # backup circle directory check
                 log.info("Check last backup circle.")
                 meta_circle_info_list = backup_meta.get_backup_circle_list(pool_name,
                                                                            rbd_name)
                 if len(meta_circle_info_list) == 0:
                     log.warning("No circle list metadata found.")
-                    rbd_backup_type[rbd_id] = ExportType[0]
+                    rbd_backup_type[rbd_id] = const.EXPORT_TYPE[0]
                 else:
                     meta_last_circle_info = meta_circle_info_list[-1]
                     meta_last_circle_name = meta_last_circle_info['name']
@@ -460,9 +474,9 @@ def main(argument_list):
                                            rbd_name,
                                            meta_last_circle_name):
                         log.warning("Last backup circle directory is not exist.")
-                        rbd_backup_type[rbd_id] = ExportType[0]
+                        rbd_backup_type[rbd_id] = const.EXPORT_TYPE[0]
 
-            if rbd_backup_type[rbd_id] == ExportType[1]:
+            if rbd_backup_type[rbd_id] == const.EXPORT_TYPE[1]:
                 # max incremental backup count check
                 log.info("Check max incremental backup.")
                 max_incr_count = backup_option.get_backup_max_incr_count(pool_name,
@@ -480,7 +494,7 @@ def main(argument_list):
                     if len(file_list) > int(max_incr_count):
                         log.info("Max incremental backup reached (%s/%s)." % (len(file_list),
                                                                               max_incr_count))
-                        rbd_backup_type[rbd_id] = ExportType[0]
+                        rbd_backup_type[rbd_id] = const.EXPORT_TYPE[0]
 
             log.info("Set backup type of '%s/%s' to '%s'." % (pool_name,
                                                               rbd_name,
@@ -529,11 +543,8 @@ def main(argument_list):
                                            cfg.ceph_cluster_name,
                                            cfg.ceph_conf_file,
                                            cfg.ceph_keyring_file)
-        task_maker.set_export_full_type(ExportType[0])
-        task_maker.set_export_diff_type(ExportType[1])
-
-        # todo: we may perform an simple task to make sure conf and keyring file
-        # are workable before doing backup procedure...
+        task_maker.set_export_full_type(const.EXPORT_TYPE[0])
+        task_maker.set_export_diff_type(const.EXPORT_TYPE[1])
 
         # for storing task result and write to file
         task_result = RBD_Backup_Task_Result(log)
@@ -569,7 +580,8 @@ def main(argument_list):
         for i in xrange(0, submitted_snap_create_task_count):
             try:
                 finished_task = manager.get_finished_task()
-                log.info("%s is completed." % (finished_task))
+                log.info("Received finished task %s." % finished_task)
+
                 pool_name = finished_task.pool_name
                 rbd_name = finished_task.rbd_name
                 created_snapshot_name = finished_task.snap_name
@@ -590,7 +602,7 @@ def main(argument_list):
                             temp_rbd_backup_list.append(rbd_info)
                     backup_rbd_info_list = temp_rbd_backup_list
                 else:
-                    log.warning("%s is completed, " % result['task_name'])
+                    log.info("%s is completed, " % result['task_name'])
                     print("  snapshot of %s/%s completed." % (pool_name, rbd_name))
 
                     # just set default snapshot info
@@ -616,12 +628,11 @@ def main(argument_list):
                 continue
 
         # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        # after create new snapshot, we may sort again the rbd_backup list
-        # by the size of the new created snapshot. (if supported to get used size)
+        # todo: after create new snapshot, we may sort again the rbd_backup list
+        # base on the size of the new created snapshot. (if supported to get used size)
         #
-
         #list_sort = RBD_Backup_List_Sort(log)
-        #sorted_rbd_backup_list = list_sort.sort_by_rbd_size(backup_rbd_info_list)
+        #sorted_rbd_backup_list = list_sort.sort_by_snap_size(backup_rbd_info_list)
 
 
         # Create and submit export tasks
@@ -645,7 +656,7 @@ def main(argument_list):
             new_created_snap_name = new_created_snap_info['name']
 
             log.info("Backup type is %s" % backup_type)
-            if backup_type == ExportType[0]:  # full
+            if backup_type == const.EXPORT_TYPE[0]:  # full
                 # create the circle dir and get the path
                 new_circle_name = new_created_snap_name
                 backup_circle_path = directory.create(cluster_backup_path,
@@ -661,7 +672,7 @@ def main(argument_list):
                                                                   rbd_name,
                                                                   new_created_snap_name,
                                                                   backup_circle_path)
-            elif backup_type == ExportType[1]:  # incr
+            elif backup_type == const.EXPORT_TYPE[1]:  # incr
                 # get snapshot created from last backup
                 last_created_snap_info = meta_snap_info_list[-2]  # from last backup
                 last_created_snap_name = last_created_snap_info['name']
@@ -703,7 +714,7 @@ def main(argument_list):
         for i in xrange(0, submitted_rbd_export_task_count):
             try:
                 finished_task = manager.get_finished_task()
-                log.info("%s is completed." % finished_task)
+                log.info("Received finished task %s." % finished_task)
 
                 pool_name = finished_task.pool_name
                 rbd_name = finished_task.rbd_name
@@ -719,21 +730,21 @@ def main(argument_list):
                     log.warning("%s is not completed, " % result['task_name'])
                     print("  export %s/%s failed." % (pool_name, rbd_name))
                     # remove export incompleted file if exist
-                    if finished_task.export_type == ExportType[0]:
+                    if finished_task.export_type == const.EXPORT_TYPE[0]:
                         directory.delete(finished_task.dest_path)
-                    elif finished_task.export_type == ExportType[1]:
+                    elif finished_task.export_type == const.EXPORT_TYPE[1]:
                         directory.delete(finished_task.dest_filepath)
                 else:
-                    log.warning("%s is completed, " % result['task_name'])
+                    log.info("%s is completed, " % result['task_name'])
                     print("  export of %s/%s completed." % (pool_name, rbd_name))
-                    if finished_task.export_type == ExportType[0]:
+                    if finished_task.export_type == const.EXPORT_TYPE[0]:
                         log.info("Update backup circle info metadata.")
                         circle_info =  {'backup_name': backup_name,
                                         'name': finished_task.dest_file,
                                         'path': circle_dir_name,
                                         'datetime': created_datetime}
                         backup_meta.add_backup_circle_info(pool_name, rbd_name, circle_info)
-                    elif finished_task.export_type == ExportType[1]:
+                    elif finished_task.export_type == const.EXPORT_TYPE[1]:
                         log.info("Update incremental backup info metadata.")
                         incr_info = {'backup_name': backup_name,
                                      'name': finished_task.dest_file,
@@ -916,6 +927,7 @@ def main(argument_list):
                     print("  delete backup circle %s of %s/%s" % (circle_name,
                                                                   pool_name,
                                                                   rbd_name))
+                    task_result.add_backup_circle_delete_result(delete_circle_path)
                     backup_circle_delete_count += 1
             except Exception as e:
                 log.error("Unable to complete delete of exceed backup circle. %s" % e)
@@ -927,12 +939,13 @@ def main(argument_list):
         # finalize RBD backup
         # ----------------------------------------------------------
         log.info("________ Finalize RBD backup ________")
-        begin_backup_timestamp = get_timestamp(begin_backup_datetime)
-        result_file = "%s/result_%s" % (cfg.log_file_path, begin_backup_timestamp)
-        task_result.write_result_to_file(result_file)
+
+        task_result.write_to_file(backup_name)
+
         manager.stop()
         ceph.disconnect_cluster()
 
+        begin_backup_timestamp = get_timestamp(begin_backup_datetime)
         log.info("******** Ceph RBD backup complete ********",
                  "use %s seconds " % get_elapsed_time(begin_backup_timestamp))
 

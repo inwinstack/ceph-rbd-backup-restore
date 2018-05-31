@@ -3,22 +3,7 @@ default:
     auth_url: http://0.0.0.0:35357/v2.0/
     tenant_name: admin
     user_name: admin
-    password: tm8Qm0tNn1
+    password: password
     cacert_path: /etc/ssl/certs/ca-certificates.crt
     volume_names:
-        -  BACNDPP01-OS
-        -  BACNBPMP01-OS
-        -  BACNGWP01-OS-20161017
-        -  BACNSISP01-OS
-        -  ihovsddbq-DATA-NEW
-        -  ihovsddbq-OS-NEW
-        -  TWOVR-OS
-        -  hqinfrafs01-OS
-        -  hqinfrafs01-DATA
-        -  LE-PRD1-OS
-        -  LE-PRD1-DATA
-        -  hqpmcsap12-OS
-        -  hqpmcsap12-DATA
-        -  ZABBIXAPP01-OS
-        -  ZABBIXAPP01-DATA
-        -  YUM01-OS
+        -  volume_name

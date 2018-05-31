@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # coding=UTF-8
+# Author: Yu-Jung Cheng
 
 import sys
 import os
@@ -46,7 +47,6 @@ def main(argument_list):
 
         if args['config_file'] is not None:
             restore_config_file = args['config_file']
-
         if args['config_section'] is not None:
             restore_config_section = args['config_section']
 
@@ -91,6 +91,8 @@ def main(argument_list):
                 print("Error, unable to get cluster info.")
                 sys.exit(2)
 
+        directory = Directory(log)
+
         print("")
         if opts[0] == 'backup':
 
@@ -107,6 +109,7 @@ def main(argument_list):
                 for backup_name in backup_name_list:
                     if show_details:
                         rbd_list = rbd_restore_list.get_backup_rbd_list(backup_name)
+
                         print("%s %s" % (backup_name, len(rbd_list)))
                     else:
                         print("%s" % backup_name)
@@ -128,10 +131,19 @@ def main(argument_list):
                     if show_details:
                         if rbd_info[0] == 0:
                             status = 'OK'
+
                         else:
                             status = 'FAIL'
-                        print("%s %s %s/%s ... %s" % (rbd_info[3],
-                                                      rbd_info[4],
+                        if status == 'OK':
+                            exist = directory.exist(backup_cluster_directory,
+                                                    rbd_info[1],
+                                                    rbd_info[2],
+                                                    rbd_info[3])
+                            if exist == False:
+                                status = 'Deleted'
+
+                        print("%s %s %s/%s ... %s" % (rbd_info[4],
+                                                      rbd_info[3],
                                                       rbd_info[1],
                                                       rbd_info[2],
                                                       status))
@@ -188,10 +200,9 @@ def main(argument_list):
                 pool_name = opts[1]
                 rbd_name = opts[2]
 
-                print("*Show backup time of RBD '%s/%s'\n." % (pool_name, rbd_name))
+                print("*Show backup time of RBD '%s/%s'.\n" % (pool_name, rbd_name))
 
                 if show_details:
-                    directory = Directory(log)
                     backup_info_list = rbd_restore_list.get_rbd_backup_info_list(pool_name, rbd_name)
                     if len(backup_info_list) == 0:
                         return 0

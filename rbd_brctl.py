@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+# Author: Yu-Jung Cheng
 #
 # a warper program (manager) to integrate with all RBD backup restore functions.
 #
@@ -23,27 +24,19 @@ def main(argument_list):
 
         if cmd_sub == 'show':
             cmd = "./backup_show.py"
-        elif cmd_sub == 'merge':
-            cmd = "./backup_merge.py"
         elif cmd_sub == 'delete':
             cmd = "./backup_delete.py"
         elif cmd_sub == 'backup':
             cmd = "./rbd_backup.py"
         elif cmd_sub == 'restore':
             cmd = "./rbd_restore.py"
-        #elif cmd_sub == 'cluster':
-        #    cmd = "./cluster.py"
-        #elif cmd_sub == 'daemon':
-        #    cmd = ".daemon.py"
         else:
-            print("Unreconginzed instruction '%s'." % cmd_sub)
+            print("Unrecognized instruction '%s'." % cmd_sub)
             sys.exit(2)
 
         cmd = "%s %s %s" % (python_path, cmd, cmd_opt)
         os.chdir(install_path)
         os.system(cmd)
-        #os.system("%s &" % cmd)
-        #os.system("nohup %s &" % cmd)
 
     except Exception as e:
         print("Error, %s" % e)
