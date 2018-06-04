@@ -1,3 +1,4 @@
+
 1. Install and introduction:
 
     This is a backup and restore tool for Ceph RBD image. You can use it to
@@ -15,8 +16,9 @@
     All source code or library are be installed in /opt/rbd_backup_restore
     directory.
 
-    This tool require rbd command and librbd and rados library to be
-    installed in system.
+    Prerequisites:
+    This tool requires rbd command and librbd and rados library installed
+    in system and python version 2.7.x.
 
 
 2. Config:
@@ -55,7 +57,7 @@
         openstack_ceph_pool = volumes
 
 
-      Description of each configuration.
+      Description of the configuration.
 
         ceph_cluster_name
           name of Ceph cluster to be backuped.

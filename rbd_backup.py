@@ -104,6 +104,7 @@ def main(argument_list):
         begin_backup_datetime = get_datetime()
         if backup_name == None:
             backup_name = normalize_datetime(begin_backup_datetime)
+        print("- backup name: %s" % backup_name)
 
         # start RBD backup
         log.blank(line_count=4)
@@ -133,6 +134,7 @@ def main(argument_list):
             if cluster_backup_path == False:
                 log.error("Fail to create directory path.")
                 sys.exit(2)
+        print("  set backup directory: %s" % cluster_backup_path)
 
         log.info("Get space size info '%s'." % cluster_backup_path)
         backup_dir_avai_bytes = directory.get_available_size(cluster_backup_path)
@@ -201,14 +203,19 @@ def main(argument_list):
                 if len(rbd_info) == 2:
                     pool_name = rbd_info[0]
                     rbd_name = rbd_info[1]
-                    rbd_count += 1
+
                     if not rbd_name_list.has_key(pool_name):
                         rbd_name_list[pool_name] = [rbd_name]
                     else:
                         rbd_list = rbd_name_list[pool_name]
-                        rbd_list.append(rbd_name)
-                        rbd_name_list[pool_name] = rbd_list
+                        if not rbd_name in rbd_list:
+                            rbd_list.append(rbd_name)
+                            rbd_name_list[pool_name] = rbd_list
+                        else:
+                            log.warning("Duplicated RBD name '%s'." % rbd_name)
+                            continue
 
+                    rbd_count += 1
                     print("  %s - %s %s" % (rbd_count, pool_name, rbd_name))
                 else:
                     log.error("Invalid rbd input list. %s" % rbd_list_input)
