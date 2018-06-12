@@ -237,9 +237,22 @@ def main(argument_list):
                     log.error("Openstack Yaml file '%s' not exists." % cfg.backup_list_file_path)
                     sys.exit(2)
 
-                rbd_backup_list.read_yaml(cfg.openstack_yaml_file_path)
-                rbd_name_list = rbd_backup_list.get_openstack_volume_names()
+                rbd_backup_list.read_openstack_yaml(cfg.openstack_yaml_file_path,
+                                                    cfg.openstack_yaml_section)
+                if rbd_backup_list.set_cinder_client(distribution=cfg.openstack_distribution,
+                                                     api_version=cfg.api_version)
+                    volume_list = rbd_backup_list.get_cinder_volume_list()
 
+                    if len(volume_list) == 0:
+                        log.warning("No any matched volume ID found.")
+                        print("Info, No any matched volume ID found.")
+                        sys.exit(0)
+                    if volume_list == False:
+                        log.warning("Unable to get cinder volume ID list from openstack.")
+                        print("Error, unable to get cinder volume ID list from openstack")
+                        sys.exit(2)
+
+                    rbd_name_list[cfg.openstack_ceph_pool] = volume_list
             else:
                 log.info("Read RBD list from backup list file.")
                 print("  get RBD backup list from %s." % cfg.backup_list_file_path)
@@ -256,7 +269,7 @@ def main(argument_list):
                     print("Info, No any item in RBD backup list.")
                     sys.exit(0)
                 if rbd_name_list == False:
-                    log.error("unable to get rbd name list from backup list file.")
+                    log.error("Unable to get rbd name list from backup list file.")
                     print("Error, unable to get rbd name list from backup list file.")
                     sys.exit(2)
 
